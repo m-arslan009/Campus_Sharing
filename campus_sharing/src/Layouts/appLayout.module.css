@@ -1,0 +1,11 @@
+.appLayout {
+  min-height: 100vh;
+}
+
+.mainLayout {
+  background: linear-gradient(180deg, #edf7f6 0%, #f8fcfb 100%) !important;
+}
+
+.content {
+  padding: 1.4rem;
+}
