@@ -1,4 +1,4 @@
-import { Button, Layout, Menu, Typography } from "antd";
+import { Button, Layout, Menu, Typography, message } from "antd";
 import {
   DashboardOutlined,
   CarOutlined,
@@ -42,6 +42,7 @@ function Sidebar() {
     { key: "settings", icon: <SettingOutlined />, label: "Settings" },
     { key: "create_ride", icon: <PlusCircleOutlined />, label: "Post Ride" },
     { key: "request_ride", icon: <FileTextOutlined />, label: "Request Rides" },
+    { key: "signup", icon: <UsergroupAddOutlined />, label: "Sign Up" },
   ];
 
   return (
@@ -64,7 +65,18 @@ function Sidebar() {
           selectedKeys={[selectedKey]}
           items={sidebarItems}
           className={styles.menu}
-          onSelect={({ key }) => navigate(`/${key}`)}
+          onSelect={({ key }) => {
+            if (key === "signup") {
+              const user = sessionStorage.getItem("user");
+              if (!user) {
+                navigate("/signup");
+              } else {
+                message.info("Logout to move on sign up page");
+              }
+            } else {
+              navigate(`/${key}`);
+            }
+          }}
         />
 
         <div className={styles.logoutWrap}>
