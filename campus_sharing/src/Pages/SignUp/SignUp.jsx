@@ -8,9 +8,9 @@ import {
 } from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import style from "./signup.module.css";
-import { useDispatch } from "react-redux";
-import { addUser } from "../../userSlice";
+import { createUser } from "../../userSlice";
 import { useState } from "react";
+import { useDispatch } from "react-redux";
 
 export default function SignUp() {
   const [api, contextHolder] = notification.useNotification();
@@ -18,16 +18,16 @@ export default function SignUp() {
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
 
-  function onFinish(values) {
+  async function onFinish(values) {
     setIsLoading(true);
-    const { firstName, lastName, ...rest } = values;
+    const { confirmPassword, ...rest } = values;
     const user = {
       ...rest,
-      name: `${firstName} ${lastName}`,
-      status: "Active",
+      status: "active",
     };
-    setTimeout(() => {
-      dispatch(addUser(user));
+
+    try {
+      await dispatch(createUser(user));
       api.success({
         message: "Account Created!",
         description:
@@ -35,15 +35,23 @@ export default function SignUp() {
         duration: 3,
         placement: "topRight",
       });
-      setIsLoading(false);
       navigate("/dashboard");
-    }, 1000);
+    } catch (error) {
+      api.error({
+        message: "Sign Up Failed",
+        description: error.message || "Unable to create account.",
+        duration: 3,
+        placement: "topRight",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function onFinishFailed(errorInfo) {
     api.error({
       message: "Sign Up Failed",
-      description: "Please fill in all required fields correctly.",
+      description: errorInfo || "Please fill in all required fields correctly.",
       duration: 3,
       placement: "topRight",
     });
@@ -180,11 +188,11 @@ export default function SignUp() {
                 placeholder="Select your role"
                 options={[
                   {
-                    value: "Driver",
+                    value: "Organizer",
                     label: (
                       <span>
                         <CarOutlined style={{ marginRight: 8 }} />
-                        Driver
+                        Organizer
                       </span>
                     ),
                   },

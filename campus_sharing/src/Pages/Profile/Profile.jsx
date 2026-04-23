@@ -35,7 +35,7 @@ function Profile() {
       </div>
     );
   }
-  const isBlocked = user?.status !== "Active";
+  const isBlocked = user?.status?.toLowerCase() !== "active";
   if (isBlocked) {
     return (
       <div className={styles.profileBg}>

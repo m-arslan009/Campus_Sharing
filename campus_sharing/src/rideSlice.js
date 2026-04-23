@@ -1,112 +1,36 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+const RIDE_URI = "http://localhost:5000/rides";
+
 const rideReducer = createSlice({
   name: "Ride",
   initialState: {
-    data: [
-      {
-        rideId: "1",
-        driver_Name: "Ali Hassan",
-        pickup_location: "Lahore",
-        drop_location: "Islamabad",
-        departure_time: "10:00 AM",
-        avaialble_seats: 3,
-        vehical_type: "SUV",
-        contact_information: "123-456-7890",
-        Notes: "No pets allowed",
-        posted_by: "Ali Hassan",
-        posted_person_email: "ali.hassan@gmail.com",
-      },
-      {
-        rideId: "2",
-        driver_Name: "Sara Khan",
-        pickup_location: "Lahore",
-        drop_location: "Peshawar",
-        departure_time: "01:00 PM",
-        avaialble_seats: 2,
-        vehical_type: "Sedan",
-        contact_information: "987-654-3210",
-        Notes: "Snacks allowed",
-        posted_by: "Sara Khan",
-        posted_person_email: "sara.khan@gmail.com",
-      },
-      {
-        rideId: "3",
-        driver_Name: "Zeeshan Rana",
-        pickup_location: "Islamabad",
-        drop_location: "Lahore",
-        departure_time: "03:00 PM",
-        avaialble_seats: 1,
-        vehical_type: "Hatchback",
-        contact_information: "555-555-5555",
-        Notes: "No smoking",
-        posted_by: "Zeeshan Rana",
-        posted_person_email: "zeeshan.rana@gmail.com",
-      },
-    ],
-    booking: [
-      {
-        rideId: "1",
-        requestId: "req-1",
-        pickup_location: "Lahore",
-        drop_location: "Islamabad",
-        departure_time: "10:00 AM",
-        contact_information: "123-456-7890",
-        status: "Pending",
-        booked_by: "abc123@gmail.com",
-      },
-      {
-        rideId: "2",
-        requestId: "req-2",
-        pickup_location: "Lahore",
-        drop_location: "Peshawar",
-        departure_time: "01:00 PM",
-        contact_information: "987-654-3210",
-        status: "Accepted",
-        booked_by: "abc123@gmail.com",
-      },
-      {
-        rideId: "3",
-        requestId: "req-3",
-        pickup_location: "Islamabad",
-        drop_location: "Lahore",
-        departure_time: "03:00 PM",
-        contact_information: "555-555-5555",
-        status: "Rejected",
-        booked_by: "ali.hassan@gmail.com",
-      },
-    ],
-    bookingQueue: [
-      {
-        rideId: "1",
-        requestId: "req-1",
-        pickup_location: "Lahore",
-        drop_location: "Islamabad",
-        departure_time: "10:00 AM",
-        contact_information: "123-456-7890",
-        status: "Pending",
-        booked_by: "abc123@gmail.com",
-      },
-      {
-        rideId: "3",
-        requestId: "req-3",
-        pickup_location: "Islamabad",
-        drop_location: "Lahore",
-        departure_time: "03:00 PM",
-        contact_information: "555-555-5555",
-        status: "Rejected",
-        booked_by: "ali.hassan@gmail.com",
-      },
-    ],
+    data: [],
   },
   reducers: {
-    deleteRide: (state, action) => {
-      return state.filter((item) => item.rideId !== action.payload);
+    setRides: (state, action) => {
+      state.data = (action.payload || []).map((ride) => ({
+        ...ride,
+        driver_Name: ride.driver_Name || ride.driver_name,
+        avaialble_seats: ride.avaialble_seats ?? ride.available_seats,
+        vehical_type: ride.vehical_type || ride.vehicle_type,
+        Notes: ride.Notes ?? ride.notes,
+      }));
+    },
+
+    delRide: (state, action) => {
+      state.data = state.data.filter((item) => item._id !== action.payload);
     },
 
     addRide: (state, action) => {
       const rideWithId = {
         ...action.payload,
+        driver_Name: action.payload.driver_Name || action.payload.driver_name,
+        avaialble_seats:
+          action.payload.avaialble_seats ?? action.payload.available_seats,
+        vehical_type:
+          action.payload.vehical_type || action.payload.vehicle_type,
+        Notes: action.payload.Notes ?? action.payload.notes,
         rideId:
           action.payload.rideId && typeof action.payload.rideId === "string"
             ? action.payload.rideId
@@ -115,63 +39,116 @@ const rideReducer = createSlice({
       state.data.push(rideWithId);
     },
 
-    addBooking: (state, action) => {
-      state.booking.push(action.payload);
-
-      const ride = state.data.find((r) => r.rideId === action.payload.rideId);
-      if (ride && ride.avaialble_seats > 0) {
-        ride.avaialble_seats--;
-      }
-    },
-
-    deleteBooking: (state, action) => {
-      return state.booking.filter((item) => item.rideId !== action.payload);
-    },
-
-    addRidesInQueue: (state, action) => {
-      const requestWithId = {
-        ...action.payload,
-        requestId:
-          action.payload.requestId &&
-          typeof action.payload.requestId === "string"
-            ? action.payload.requestId
-            : Date.now().toString() + Math.random().toString(36).substr(2, 8),
-        status: action.payload.status || "Pending",
-        booked_by: JSON.parse(sessionStorage.getItem("user")).email,
-      };
-      state.booking.push(requestWithId);
-      state.bookingQueue.push(requestWithId);
-    },
-
-    acceptRideRequest: (state, action) => {
-      const idx = state.bookingQueue.findIndex(
-        (ride) => ride.requestId === action.payload,
-      );
-      if (idx !== -1) {
-        state.booking[idx].status = "Accepted";
-        state.bookingQueue.pop(idx);
-      }
-    },
-
-    rejectRideRequest: (state, action) => {
-      const idx = state.bookingQueue.findIndex(
-        (ride) => ride.requestId === action.payload,
-      );
-      if (idx !== -1) {
-        state.booking[idx].status = "Rejected";
-        state.bookingQueue.pop(idx);
+    updateRideInfo: (state, action) => {
+      const { _id, ...rest } = action.payload;
+      const rideIdx = state.data.findIndex((r) => r._id === _id);
+      if (rideIdx !== -1) {
+        state.data[rideIdx] = {
+          ...state.data[rideIdx],
+          ...rest,
+          driver_Name:
+            rest.driver_Name ||
+            rest.driver_name ||
+            state.data[rideIdx].driver_Name,
+          avaialble_seats:
+            rest.avaialble_seats ??
+            rest.available_seats ??
+            state.data[rideIdx].avaialble_seats,
+          vehical_type:
+            rest.vehical_type ||
+            rest.vehicle_type ||
+            state.data[rideIdx].vehical_type,
+          Notes: rest.Notes ?? rest.notes ?? state.data[rideIdx].Notes,
+        };
       }
     },
   },
 });
 
-export const {
-  deleteRide,
-  addRide,
-  addBooking,
-  deleteBooking,
-  addRidesInQueue,
-  acceptRideRequest,
-  rejectRideRequest,
-} = rideReducer.actions;
+export const createNewRide = (rideData) => async (dispatch) => {
+  try {
+    const response = await fetch(RIDE_URI, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(rideData),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+
+    dispatch(addRide(data.ride));
+    return data.message;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getAllRides = () => async (dispatch) => {
+  try {
+    const response = await fetch(RIDE_URI, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+
+    dispatch(setRides(data.allRides));
+    return data.message || "Rides fetched successfully";
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const updateRide = (rideData) => async (dispatch) => {
+  try {
+    const { _id, ...rest } = rideData;
+    const response = await fetch(`${RIDE_URI}/${_id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(rest),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+
+    dispatch(updateRideInfo(data.ride));
+    return data.message;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteRide = (rideId) => async (dispatch) => {
+  try {
+    const response = await fetch(`${RIDE_URI}/${rideId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+    dispatch(delRide(rideId));
+    return "Ride Deleted Successfully";
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const { delRide, addRide, setRides, updateRideInfo } =
+  rideReducer.actions;
 export default rideReducer.reducer;

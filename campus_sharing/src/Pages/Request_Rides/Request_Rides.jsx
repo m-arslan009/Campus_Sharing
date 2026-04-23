@@ -19,10 +19,12 @@ import Ride_Detail from "../../Components/RideDetail/Ride_Detail";
 import { useSearchParams } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
-  addBooking,
   acceptRideRequest,
+  createNewRequest,
+  getRequestQueueByUser,
+  updateRequest,
   rejectRideRequest,
-} from "../../rideSlice";
+} from "../../requestSlice";
 
 const cities = [
   { value: "Islamabad", label: "Islamabad" },
@@ -50,9 +52,9 @@ const cities = [
 function Request_Rides() {
   const [api, contextHolder] = notification.useNotification();
   const user = JSON.parse(sessionStorage.getItem("user"));
-  const isBlocked = user?.status !== "Active";
+  const isBlocked = user?.status !== "active";
   const dispatch = useDispatch();
-  const data = useSelector((state) => state.ride.bookingQueue);
+  const data = useSelector((state) => state.request.bookingQueue);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -72,15 +74,19 @@ function Request_Rides() {
   }, [navigate, location]);
 
   useEffect(() => {
+    if (user?._id || user?.email) {
+      dispatch(getRequestQueueByUser(user._id || user.email)).catch(() => {});
+    }
+  }, [dispatch, user?._id, user?.email]);
+
+  useEffect(() => {
     setLoading(true);
     setTimeout(() => {
-      // Only show rides with at least 1 seat
       setDataSource(data.filter((ride) => ride.avaialble_seats > 0));
       setLoading(false);
     }, 1000);
   }, [data]);
 
-  // Filter rides based on URL parameters
   if (isBlocked) {
     return (
       <div style={{ maxWidth: 600, margin: "2.5rem auto" }}>
@@ -93,6 +99,7 @@ function Request_Rides() {
       </div>
     );
   }
+
   useEffect(() => {
     const pickup = searchParams?.get("pickup_location") ?? null;
     const drop = searchParams?.get("drop_location") ?? null;
@@ -133,23 +140,57 @@ function Request_Rides() {
   }
 
   function handleAccept(requestId) {
-    dispatch(acceptRideRequest(requestId));
-    api.success({
-      message: "Request Accepted",
-      description: "The ride request has been accepted.",
-      duration: 1.5,
-      placement: "topRight",
-    });
+    const request = data.find(
+      (item) => item.requestId === requestId || item._id === requestId,
+    );
+
+    if (!request) return;
+
+    dispatch(updateRequest({ ...request, status: "accepted" }))
+      .then((message) => {
+        dispatch(acceptRideRequest(requestId));
+        api.success({
+          message: message || "Request Accepted",
+          description: "The ride request has been accepted.",
+          duration: 1.5,
+          placement: "topRight",
+        });
+      })
+      .catch((error) => {
+        api.error({
+          message: "Request Update Failed",
+          description: error.message,
+          duration: 1.5,
+          placement: "topRight",
+        });
+      });
   }
 
   function handleReject(requestId) {
-    dispatch(rejectRideRequest(requestId));
-    api.info({
-      message: "Request Rejected",
-      description: "The ride request has been rejected.",
-      duration: 1.5,
-      placement: "topRight",
-    });
+    const request = data.find(
+      (item) => item.requestId === requestId || item._id === requestId,
+    );
+
+    if (!request) return;
+
+    dispatch(updateRequest({ ...request, status: "rejected" }))
+      .then((message) => {
+        dispatch(rejectRideRequest(requestId));
+        api.info({
+          message: message || "Request Rejected",
+          description: "The ride request has been rejected.",
+          duration: 1.5,
+          placement: "topRight",
+        });
+      })
+      .catch((error) => {
+        api.error({
+          message: "Request Update Failed",
+          description: error.message,
+          duration: 1.5,
+          placement: "topRight",
+        });
+      });
   }
 
   function handleSearch() {
@@ -165,15 +206,32 @@ function Request_Rides() {
   }
 
   function handleAddBooking(record) {
-    const updateRecord = { ...record, status: "Panding" };
-    dispatch(acceptRideRequest(updateRecord));
-    api.success({
-      title: "Ride Booked",
-      description: `You have booked a ride from ${record.pickup_location} to ${record.drop_location}`,
-      duration: 1.5,
-      placement: "topRight",
-    });
-    handleClose();
+    const requestPayload = {
+      status: "pending",
+      ride_detail: record._id || record.rideId,
+      booked_by: user?.email || "",
+    };
+
+    dispatch(createNewRequest(requestPayload))
+      .then((message) => {
+        api.success({
+          title: "Ride Booked",
+          description:
+            message ||
+            `You have booked a ride from ${record.pickup_location} to ${record.drop_location}`,
+          duration: 1.5,
+          placement: "topRight",
+        });
+        handleClose();
+      })
+      .catch((error) => {
+        api.error({
+          title: "Request Failed",
+          description: error.message,
+          duration: 1.5,
+          placement: "topRight",
+        });
+      });
   }
 
   const columns = [
@@ -266,13 +324,7 @@ function Request_Rides() {
       </Button>
       {contextHolder}
       <Skeleton active loading={loading}>
-        <h1>Book a Ride</h1>
-        <Alert
-          type="info"
-          description="Check full detail to book a ride"
-          showIcon
-          style={{ marginBottom: "20px" }}
-        />
+        <h1>Requests to Book a Ride</h1>
         <Table
           dataSource={dataSource}
           columns={columns}

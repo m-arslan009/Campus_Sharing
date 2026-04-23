@@ -13,7 +13,8 @@ import { DeleteOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
 import Ride_Detail from "../../Components/RideDetail/Ride_Detail";
 import { useSearchParams } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { addBooking, addRidesInQueue, deleteRide } from "../../rideSlice";
+import { deleteRide } from "../../rideSlice";
+import { createNewRequest } from "../../requestSlice";
 
 const cities = [
   { value: "Islamabad", label: "Islamabad" },
@@ -41,7 +42,7 @@ const cities = [
 function Rides() {
   const [api, contextHolder] = notification.useNotification();
   const user = JSON.parse(sessionStorage.getItem("user"));
-  const isBlocked = user?.status !== "Active";
+  const isBlocked = user?.status?.toLowerCase() !== "active";
   const dispatch = useDispatch();
   const data = useSelector((state) => state.ride.data);
   const navigate = useNavigate();
@@ -140,15 +141,32 @@ function Rides() {
   }
 
   function handleAddBooking(record) {
-    const updateRecord = { ...record, status: "Panding" };
-    dispatch(addRidesInQueue(updateRecord));
-    api.success({
-      title: "Ride Booked",
-      description: `You have booked a ride from ${record.pickup_location} to ${record.drop_location}`,
-      duration: 1.5,
-      placement: "topRight",
-    });
-    handleClose();
+    const requestPayload = {
+      ride_detail: record._id || record.rideId,
+      status: "pending",
+      booked_by: user?.email || "",
+    };
+
+    dispatch(createNewRequest(requestPayload))
+      .then((message) => {
+        api.success({
+          title: "Ride Booked",
+          description:
+            message ||
+            `You have booked a ride from ${record.pickup_location} to ${record.drop_location}`,
+          duration: 1.5,
+          placement: "topRight",
+        });
+        handleClose();
+      })
+      .catch((error) => {
+        api.error({
+          title: "Booking Failed",
+          description: error.message,
+          duration: 1.5,
+          placement: "topRight",
+        });
+      });
   }
 
   const columns = [

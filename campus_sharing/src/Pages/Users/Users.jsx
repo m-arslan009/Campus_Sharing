@@ -8,7 +8,7 @@ import { Button, Radio, Skeleton, Space, Table, Tag } from "antd";
 import { useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteUser, updateUser, updateUserStatus } from "../../userSlice";
+import { deleteUser, updateUserStatus } from "../../userSlice";
 import User_Detail from "../../Components/UserDetail/User_Detail";
 
 function Users() {
@@ -32,16 +32,27 @@ function Users() {
       // setCurrentFilter(filter);
       switch (filter) {
         case "Active":
-          setDisplayData(users.filter((user) => user.status === "Active"));
+          setDisplayData(
+            users.filter((user) => user.status?.toLowerCase() === "active"),
+          );
           break;
         case "Inactive":
-          setDisplayData(users.filter((user) => user.status === "Inactive"));
+          setDisplayData(
+            users.filter((user) => {
+              const userStatus = user.status?.toLowerCase();
+              return userStatus === "inactive" || userStatus === "block";
+            }),
+          );
           break;
-        case "Driver":
-          setDisplayData(users.filter((user) => user.role === "Driver"));
+        case "Organizer":
+          setDisplayData(
+            users.filter((user) => user.role?.toLowerCase() === "organizer"),
+          );
           break;
         case "Student":
-          setDisplayData(users.filter((user) => user.role === "Student"));
+          setDisplayData(
+            users.filter((user) => user.role?.toLowerCase() === "student"),
+          );
           break;
         default:
           setDisplayData(users);
@@ -68,8 +79,8 @@ function Users() {
     setSearchParams({ filter: "Inactive" });
   }
 
-  function handleDriverFilter() {
-    setSearchParams({ filter: "Driver" });
+  function handleOrganizerFilter() {
+    setSearchParams({ filter: "Organizer" });
   }
 
   function handleStudentFilter() {
@@ -81,7 +92,7 @@ function Users() {
   }
 
   function handleDelete(record) {
-    dispatch(deleteUser(record.email));
+    dispatch(deleteUser(record._id));
   }
 
   function handleStatusChange(email, newStatus) {
@@ -96,18 +107,26 @@ function Users() {
         }
       }
     }
-    dispatch(updateUserStatus({ key: email, status: newStatus }));
+    dispatch(updateUserStatus(email, newStatus));
   }
 
   const columns = [
-    { title: "Name", dataIndex: "name", key: "name" },
+    {
+      title: "Name",
+      key: "name",
+      render: (_, record) =>
+        record.name ||
+        `${record.firstName || ""} ${record.lastName || ""}`.trim(),
+    },
     { title: "Email", dataIndex: "email", key: "email" },
     {
       title: "Role",
       dataIndex: "role",
       key: "role",
       render: (role) => (
-        <Tag color={role === "Driver" ? "blue" : "green"}>{role}</Tag>
+        <Tag color={role?.toLowerCase() === "organizer" ? "blue" : "green"}>
+          {role}
+        </Tag>
       ),
     },
     {
@@ -115,7 +134,9 @@ function Users() {
       dataIndex: "status",
       key: "status",
       render: (status) => (
-        <Tag color={status === "Active" ? "success" : "default"}>{status}</Tag>
+        <Tag color={status?.toLowerCase() === "active" ? "success" : "default"}>
+          {status}
+        </Tag>
       ),
     },
     {
@@ -136,16 +157,16 @@ function Users() {
           <Button
             type="default"
             icon={
-              record.status === "Active" ? (
+              record.status?.toLowerCase() === "active" ? (
                 <StopOutlined />
               ) : (
                 <CheckCircleOutlined />
               )
             }
             onClick={() =>
-              record.status === "Active"
-                ? handleStatusChange(record?.email, "Inactive")
-                : handleStatusChange(record?.email, "Active")
+              record.status?.toLowerCase() === "active"
+                ? handleStatusChange(record?.email, "block")
+                : handleStatusChange(record?.email, "active")
             }
           />
         </Space>
@@ -165,8 +186,8 @@ function Users() {
         <Radio.Button value="Inactive" onClick={() => handleInactiveFilter()}>
           Inactive
         </Radio.Button>
-        <Radio.Button value="Driver" onClick={() => handleDriverFilter()}>
-          Driver
+        <Radio.Button value="Organizer" onClick={() => handleOrganizerFilter()}>
+          Organizer
         </Radio.Button>
         <Radio.Button value="Student" onClick={() => handleStudentFilter()}>
           Student

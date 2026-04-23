@@ -32,7 +32,7 @@ function Post_Ride() {
   // Remove unused storedUser
 
   const user = JSON.parse(sessionStorage.getItem("user"));
-  const isBlocked = user?.status !== "Active";
+  const isBlocked = user?.status !== "active";
 
   const handleFinish = (values) => {
     if (isBlocked) {

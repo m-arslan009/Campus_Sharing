@@ -1,24 +1,31 @@
 import { Skeleton, Table, Alert } from "antd";
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { getBookingsByUser } from "../../requestSlice";
 
 function Bookings() {
   const user = JSON.parse(sessionStorage.getItem("user"));
-  const isBlocked = user?.status !== "Active";
-  const bookings = useSelector((state) => state.ride.booking);
-  const bookingsData = bookings.filter((b) => b.booked_by === user?.email);
+  const isBlocked = user?.status?.toLowerCase() !== "active";
+  const dispatch = useDispatch();
+  const bookings = useSelector((state) => state.request.booking);
+  const bookingsData = bookings;
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!sessionStorage.getItem("user")) {
       navigate("/login");
+      return;
     }
     setIsLoading(true);
+    if (user?._id || user?.email) {
+      dispatch(getBookingsByUser(user._id || user.email)).catch(() => {});
+    }
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [dispatch, navigate, user?._id, user?.email]);
 
   const columns = [
     { title: "Pickup", dataIndex: "pickup_location", key: "pickup_location" },

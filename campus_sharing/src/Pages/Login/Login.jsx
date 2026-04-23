@@ -3,20 +3,23 @@ import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import style from "./login.module.css";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
+import { loginUser } from "../../userSlice";
 
 function Login() {
   const [api, contextHolder] = notification.useNotification();
   const navigate = useNavigate();
-  const users = useSelector((state) => state.user);
+  const dispatch = useDispatch();
 
-  function onFinish(values) {
-    const user = users.find(
-      (u) => u.email === values.email && u.password === values.password,
-    );
-    if (user) {
-      const { password, confirmPassword, ...userToStore } = user;
-      sessionStorage.setItem("user", JSON.stringify(userToStore));
+  async function onFinish(values) {
+    try {
+      await dispatch(
+        loginUser({
+          email: values.email?.trim().toLowerCase(),
+          password: values.password,
+        }),
+      );
+
       api.success({
         message: "Login Successful",
         description: "You have successfully logged in to your account.",
@@ -24,10 +27,10 @@ function Login() {
         placement: "topRight",
       });
       navigate("/dashboard", { replace: true });
-    } else {
+    } catch (error) {
       api.error({
         message: "Login Failed",
-        description: "Invalid email or password.",
+        description: error.message || "Invalid email or password.",
         duration: 3,
         placement: "topRight",
       });
