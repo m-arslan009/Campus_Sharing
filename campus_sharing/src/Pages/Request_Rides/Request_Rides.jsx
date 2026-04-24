@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Alert,
   Button,
+  AutoComplete,
   Select,
   Skeleton,
   Space,
@@ -25,6 +26,7 @@ import {
   updateRequest,
   rejectRideRequest,
 } from "../../requestSlice";
+import { selectCurrentUser } from "../../userSlice";
 
 const cities = [
   { value: "Islamabad", label: "Islamabad" },
@@ -51,14 +53,14 @@ const cities = [
 
 function Request_Rides() {
   const [api, contextHolder] = notification.useNotification();
-  const user = JSON.parse(sessionStorage.getItem("user"));
+  const user = useSelector(selectCurrentUser);
+  const token = useSelector((state) => state.user.token);
   const isBlocked = user?.status !== "active";
   const dispatch = useDispatch();
   const data = useSelector((state) => state.request.bookingQueue);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [dataSource, setDataSource] = useState(data);
   const [selectedRide, setSelectedRide] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,11 +69,16 @@ function Request_Rides() {
   const [drop_loc, setDrop_loc] = useState("");
   const [time, setTime] = useState("");
 
+  const getRide = (request) =>
+    request?.ride_detail && typeof request.ride_detail === "object"
+      ? request.ride_detail
+      : request;
+
   useEffect(() => {
-    if (!sessionStorage.getItem("user")) {
+    if (!token) {
       navigate("/login");
     }
-  }, [navigate, location]);
+  }, [navigate, location, token]);
 
   useEffect(() => {
     if (user?._id || user?.email) {
@@ -79,13 +86,50 @@ function Request_Rides() {
     }
   }, [dispatch, user?._id, user?.email]);
 
+  const dataSource = useMemo(() => {
+    const pickup = searchParams?.get("pickup_location") ?? null;
+    const drop = searchParams?.get("drop_location") ?? null;
+    const departure = searchParams?.get("departure_time") ?? null;
+
+    let filtered = data.filter((request) => {
+      const ride = getRide(request);
+      const seats =
+        ride?.available_seats ?? 0;
+      return seats > 0;
+    });
+
+    if (pickup && drop && departure) {
+      filtered = filtered
+        .filter((request) => {
+          const ride = getRide(request);
+          return (
+            (ride?.pickup_location || "").toLowerCase() === pickup.toLowerCase()
+          );
+        })
+        .filter((request) => {
+          const ride = getRide(request);
+          return (
+            (ride?.drop_location || "").toLowerCase() === drop.toLowerCase()
+          );
+        })
+        .filter((request) => {
+          const ride = getRide(request);
+          return (
+            (ride?.departure_time || "").toLowerCase() === departure.toLowerCase()
+          );
+        });
+    }
+
+    return filtered;
+  }, [data, searchParams]);
+
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setDataSource(data.filter((ride) => ride.avaialble_seats > 0));
+    const timerId = setTimeout(() => {
       setLoading(false);
     }, 1000);
-  }, [data]);
+
+    return () => clearTimeout(timerId);
+  }, []);
 
   if (isBlocked) {
     return (
@@ -100,37 +144,14 @@ function Request_Rides() {
     );
   }
 
-  useEffect(() => {
-    const pickup = searchParams?.get("pickup_location") ?? null;
-    const drop = searchParams?.get("drop_location") ?? null;
-    const departure = searchParams?.get("departure_time") ?? null;
-    let filtered = data.filter((ride) => ride.avaialble_seats > 0);
-    if (pickup && drop && departure) {
-      filtered = filtered
-        .filter(
-          (ride) => ride.pickup_location.toLowerCase() === pickup.toLowerCase(),
-        )
-        .filter(
-          (ride) => ride.drop_location.toLowerCase() === drop.toLowerCase(),
-        )
-        .filter(
-          (ride) =>
-            ride.departure_time.toLowerCase() === departure.toLowerCase(),
-        );
-    }
-    setDataSource(filtered);
-  }, [searchParams, data]);
-
-  useEffect(() => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-  }, []);
-
   function viewRideDetail(record) {
-    setSelectedRide(record);
+    const ride = getRide(record);
+    setSelectedRide(ride);
     setModalOpen(true);
-    setSearchParams({ rideId: record.rideId, rideStatus: record.status });
+    setSearchParams({
+      rideId: ride?._id || record.rideId || "",
+      rideStatus: record.status,
+    });
   }
 
   function handleClose() {
@@ -235,17 +256,25 @@ function Request_Rides() {
   }
 
   const columns = [
-    { title: "Pickup", dataIndex: "pickup_location", key: "pickup_location" },
-    { title: "Drop", dataIndex: "drop_location", key: "drop_location" },
+    {
+      title: "Pickup",
+      key: "pickup_location",
+      render: (_, record) => getRide(record)?.pickup_location || "",
+    },
+    {
+      title: "Drop",
+      key: "drop_location",
+      render: (_, record) => getRide(record)?.drop_location || "",
+    },
     {
       title: "Departure Time",
-      dataIndex: "departure_time",
       key: "departure_time",
+      render: (_, record) => getRide(record)?.departure_time || "",
     },
     {
       title: "Contact",
-      dataIndex: "contact_information",
       key: "contact_information",
+      render: (_, record) => getRide(record)?.contact_information || "",
     },
     {
       title: "Status",
@@ -265,14 +294,14 @@ function Request_Rides() {
           <Button
             type="primary"
             style={{ background: "#52c41a", borderColor: "#52c41a" }}
-            onClick={() => handleAccept(record.requestId)}
+            onClick={() => handleAccept(record.requestId || record._id)}
           >
             <CheckCircleOutlined />
           </Button>
           <Button
             type="primary"
             danger
-            onClick={() => handleReject(record.requestId)}
+            onClick={() => handleReject(record.requestId || record._id)}
           >
             <CloseCircleOutlined />
           </Button>
@@ -284,17 +313,17 @@ function Request_Rides() {
   return (
     <>
       {contextHolder}
-      <Select
+      <AutoComplete
         onChange={(value) => setPickup_loc(value)}
         allowClear
-        placeholder="Pickup Location"
+        placeholder="Type or select pickup city"
         style={{ width: 200, marginRight: 16, marginBottom: 20 }}
         options={cities}
       />
-      <Select
+      <AutoComplete
         onChange={(value) => setDrop_loc(value)}
         allowClear
-        placeholder="Drop Location"
+        placeholder="Type or select drop city"
         style={{ width: 200, marginBottom: 20, marginRight: 16 }}
         options={cities}
       />
@@ -328,7 +357,7 @@ function Request_Rides() {
         <Table
           dataSource={dataSource}
           columns={columns}
-          rowKey="rideId"
+          rowKey={(record) => record.requestId || record._id}
           pagination={{ pageSize: 8 }}
         />
         <Ride_Detail

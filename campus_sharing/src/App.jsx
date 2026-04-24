@@ -5,6 +5,7 @@ import {
   createBrowserRouter,
 } from "react-router-dom";
 import { Provider } from "react-redux";
+import { useSelector } from "react-redux";
 import { store } from "./store";
 import AppLayout from "./Layouts/AppLayout";
 import Dashboard from "./Pages/Dashboard/Dashboard";
@@ -18,56 +19,95 @@ import Login from "./Pages/Login/Login";
 import Post_Ride from "./Pages/Post_RIde/Post_Ride";
 import Request_Rides from "./Pages/Request_Rides/Request_Rides";
 
+function PublicRoute({ children }) {
+  const isAuthenticated = Boolean(useSelector((state) => state.user.token));
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+}
+
+function ProtectedRoute({ children }) {
+  const isAuthenticated = Boolean(useSelector((state) => state.user.token));
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
 const routes = createBrowserRouter([
   {
-    path: "/login",
-    element: <Login />,
-  },
-  {
-    path: "/signup",
-    element: <SignUp />,
+    path: "/",
+    element: <Navigate to="/dashboard" replace />,
   },
   {
     path: "/",
     element: <AppLayout />,
     children: [
       {
-        index: true,
-        element: <Navigate to="/dashboard" replace />,
-      },
-      {
         path: "dashboard",
         element: <Dashboard />,
       },
-      {
-        path: "rides",
-        element: <Rides />,
-      },
+      { path: "rides", element: <Rides /> },
       {
         path: "bookings",
-        element: <Bookings />,
+        element: (
+          <ProtectedRoute>
+            <Bookings />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "profile",
-        element: <Profile />,
+        element: (
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "settings",
-        element: <Settings />,
+        element: (
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "users",
-        element: <Users />,
+        element: (
+          <ProtectedRoute>
+            <Users />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "create_ride",
-        element: <Post_Ride />,
+        element: (
+          <ProtectedRoute>
+            <Post_Ride />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "request_ride",
-        element: <Request_Rides />,
+        element: (
+          <ProtectedRoute>
+            <Request_Rides />
+          </ProtectedRoute>
+        ),
       },
     ],
+  },
+  {
+    path: "/login",
+    element: (
+      <PublicRoute>
+        <Login />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: "/signup",
+    element: (
+      <PublicRoute>
+        <SignUp />
+      </PublicRoute>
+    ),
   },
 ]);
 

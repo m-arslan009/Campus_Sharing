@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Card,
   Avatar,
@@ -12,19 +11,14 @@ import {
 import { UserOutlined, EditOutlined } from "@ant-design/icons";
 import styles from "./profile.module.css";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { selectCurrentUser } from "../../userSlice";
 
 const { Title, Text } = Typography;
 
 function Profile() {
-  const [user, setUser] = useState(null);
+  const user = useSelector(selectCurrentUser);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const userData = sessionStorage.getItem("user");
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
 
   if (!user) {
     return (

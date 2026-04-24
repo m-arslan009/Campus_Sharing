@@ -4,9 +4,11 @@ import { useSelector } from "react-redux";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { getBookingsByUser } from "../../requestSlice";
+import { selectCurrentUser } from "../../userSlice";
 
 function Bookings() {
-  const user = JSON.parse(sessionStorage.getItem("user"));
+  const user = useSelector(selectCurrentUser);
+  const token = useSelector((state) => state.user.token);
   const isBlocked = user?.status?.toLowerCase() !== "active";
   const dispatch = useDispatch();
   const bookings = useSelector((state) => state.request.booking);
@@ -15,7 +17,7 @@ function Bookings() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!sessionStorage.getItem("user")) {
+    if (!token) {
       navigate("/login");
       return;
     }
@@ -25,20 +27,34 @@ function Bookings() {
     }
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
-  }, [dispatch, navigate, user?._id, user?.email]);
+  }, [dispatch, navigate, token, user?._id, user?.email]);
 
   const columns = [
-    { title: "Pickup", dataIndex: "pickup_location", key: "pickup_location" },
-    { title: "Drop", dataIndex: "drop_location", key: "drop_location" },
+    {
+      title: "Pickup",
+      key: "pickup_location",
+      render: (_, record) =>
+        record.ride_detail?.pickup_location || record.pickup_location || "",
+    },
+    {
+      title: "Drop",
+      key: "drop_location",
+      render: (_, record) =>
+        record.ride_detail?.drop_location || record.drop_location || "",
+    },
     {
       title: "Departure Time",
-      dataIndex: "departure_time",
       key: "departure_time",
+      render: (_, record) =>
+        record.ride_detail?.departure_time || record.departure_time || "",
     },
     {
       title: "Contact",
-      dataIndex: "contact_information",
       key: "contact_information",
+      render: (_, record) =>
+        record.ride_detail?.contact_information ||
+        record.contact_information ||
+        "",
     },
     {
       title: "Status",
@@ -108,7 +124,11 @@ function Bookings() {
   }
   return (
     <Skeleton loading={isLoading}>
-      <Table dataSource={bookingsData} columns={columns} rowKey="rideId" />
+      <Table
+        dataSource={bookingsData}
+        columns={columns}
+        rowKey={(record) => record.requestId || record._id}
+      />
     </Skeleton>
   );
 }

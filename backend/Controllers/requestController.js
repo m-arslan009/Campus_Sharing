@@ -52,6 +52,38 @@ async function getAllRequests(req, res) {
   }
 }
 
+async function deleteRequestsByRideId(req, res) {
+  try {
+    const rideIdentifier = req.params.rideId;
+    let ride = null;
+
+    if (isObjectId(rideIdentifier)) {
+      ride = await Ride.findById(rideIdentifier).select("_id");
+    }
+
+    if (!ride) {
+      ride = await Ride.findOne({ rideId: rideIdentifier }).select("_id");
+    }
+
+    if (!ride) {
+      return res.status(404).json({ message: "Ride not found" });
+    }
+
+    const deletedRequests = await Requests.deleteMany({ ride_detail: ride._id });
+
+    if (deletedRequests.deletedCount === 0) {
+      return res.status(404).json({ message: "No requests found for this ride" });
+    }
+    return res.status(200).json({
+      message: "Requests deleted successfully",
+      deletedRequestsCount: deletedRequests.deletedCount,
+      rideId: ride._id,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 async function getBookingsByUser(req, res) {
   try {
     const user = await resolveUser(req.params.userId);
@@ -170,4 +202,5 @@ module.exports = {
   getRequest,
   updateRequest,
   deleteRequest,
+  deleteRequestsByRideId
 };

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Requests = require("./Requests");
 
 const rideSchema = new mongoose.Schema({
   rideId: {
@@ -71,6 +72,14 @@ const rideSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+});
+
+rideSchema.post("findOneAndDelete", async function (doc) {
+  if (!doc) {
+    return;
+  }
+
+  await Requests.deleteMany({ ride_detail: doc._id });
 });
 
 const Ride = mongoose.model("Ride", rideSchema);

@@ -1,5 +1,6 @@
 const User = require("../Models/User");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken")
 
 async function RegisterUser(req, res) {
   try {
@@ -72,15 +73,15 @@ async function getUsers(req, res) {
 
 async function getUser(req, res) {
   try {
-    const email = req.params.email;
-    const user = await User.findOne({ email: email });
+    const email = req.params.email?.toLowerCase();
+    const user = await User.findOne({ email });
     if (!user) {
       return res
         .status(404)
         .json({ message: `User with email: ${email} not exist` });
     }
 
-    return res.status(302).json(user);
+    return res.status(200).json(user);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -166,10 +167,13 @@ async function login(req, res) {
     }
 
     const userObj = user.toObject();
+  
     const { password: _ignoredPassword, ...rest } = userObj;
+    const token = jwt.sign(rest, process.env.MY_SECRET_KEY, {expiresIn: '2h'})
     return res.status(200).json({
       message: "Login successful",
-      user: rest,
+      accessToken: token,
+      
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -190,6 +194,14 @@ async function deleteUser(req, res) {
   }
 }
 
+async function logout(req, res) {
+  try {
+    return res.status(200).json({ message: "Logout successful" });
+  } catch(error) {
+    return res.status(500).json({message:error.message})
+  }
+}
+
 module.exports = {
   RegisterUser,
   getUsers,
@@ -198,4 +210,5 @@ module.exports = {
   login,
   deleteUser,
   updateUserStatus,
+  logout
 };

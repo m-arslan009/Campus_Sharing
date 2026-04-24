@@ -1,5 +1,6 @@
-import { useDispatch } from "react-redux";
-import { addRide } from "../../rideSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { createNewRide } from "../../rideSlice";
+import { selectCurrentUser } from "../../userSlice";
 import {
   Card,
   Form,
@@ -31,8 +32,13 @@ function Post_Ride() {
   const [api, contextHolder] = notification.useNotification();
   // Remove unused storedUser
 
-  const user = JSON.parse(sessionStorage.getItem("user"));
+  const user = useSelector(selectCurrentUser);
   const isBlocked = user?.status !== "active";
+  const postedByName =
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+    user?.name ||
+    user?.username ||
+    "Unknown";
 
   const handleFinish = (values) => {
     if (isBlocked) {
@@ -45,25 +51,50 @@ function Post_Ride() {
       });
       return;
     }
-    setLoading(true);
-    const ride = {
-      ...values,
-      key: Date.now().toString(),
-      driver_Name: user?.name || "Unknown",
-      posted_by: user?.name || "Unknown",
-      posted_person_email: user?.email || "Unknown",
-    };
-    dispatch(addRide(ride));
-    setTimeout(() => {
-      setLoading(false);
-      api.success({
-        message: "Ride Posted!",
-        description: "Your ride offer has been posted successfully.",
+
+    if (!user?._id) {
+      api.error({
+        message: "Login required",
+        description: "Please log in again before posting a ride.",
         duration: 2.5,
         placement: "topRight",
       });
-      form.resetFields();
-    }, 800);
+      return;
+    }
+
+    setLoading(true);
+
+    // Generate numeric rideId based on timestamp
+    const rideId = Date.now().toString();
+    
+    const ride = {
+      ...values,
+      rideId: rideId,
+      driver_Name: postedByName,
+      posted_by: postedByName,
+      posted_person_email: user._id,
+    };
+    
+    dispatch(createNewRide(ride))
+      .then(() => {
+        setLoading(false);
+        api.success({
+          message: "Ride Posted!",
+          description: "Your ride offer has been posted successfully.",
+          duration: 2.5,
+          placement: "topRight",
+        });
+        form.resetFields();
+      })
+      .catch((error) => {
+        setLoading(false);
+        api.error({
+          message: "Failed to Post Ride",
+          description: error.message || "Unable to post ride. Please try again.",
+          duration: 3,
+          placement: "topRight",
+        });
+      });
   };
 
   const handleFinishFailed = () => {

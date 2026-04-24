@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
+  AutoComplete,
   Select,
   Skeleton,
   Space,
@@ -13,8 +14,9 @@ import { DeleteOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
 import Ride_Detail from "../../Components/RideDetail/Ride_Detail";
 import { useSearchParams } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { deleteRide } from "../../rideSlice";
-import { createNewRequest } from "../../requestSlice";
+import { deleteRide, getAllRides } from "../../rideSlice";
+import { createNewRequest, deleteRequestsByRideId } from "../../requestSlice";
+import { selectCurrentUser } from "../../userSlice";
 
 const cities = [
   { value: "Islamabad", label: "Islamabad" },
@@ -41,14 +43,13 @@ const cities = [
 
 function Rides() {
   const [api, contextHolder] = notification.useNotification();
-  const user = JSON.parse(sessionStorage.getItem("user"));
-  const isBlocked = user?.status?.toLowerCase() !== "active";
+  const user = useSelector(selectCurrentUser);
+  const token = useSelector((state) => state.user.token);
+  const isBlocked = token && user?.status?.toLowerCase() !== "active";
   const dispatch = useDispatch();
   const data = useSelector((state) => state.ride.data);
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const [dataSource, setDataSource] = useState(data);
   const [selectedRide, setSelectedRide] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,39 +58,20 @@ function Rides() {
   const [drop_loc, setDrop_loc] = useState("");
   const [time, setTime] = useState("");
 
-  useEffect(() => {
-    if (!sessionStorage.getItem("user")) {
-      navigate("/login");
-    }
-  }, [navigate, location]);
+  const getSeats = (ride) =>
+    ride?.avaialble_seats ?? ride?.available_seats ?? 0;
 
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      // Only show rides with at least 1 seat
-      setDataSource(data.filter((ride) => ride.avaialble_seats > 0));
-      setLoading(false);
-    }, 1000);
-  }, [data]);
+    dispatch(getAllRides()).catch(() => {});
+  }, [dispatch]);
 
-  // Filter rides based on URL parameters
-  if (isBlocked) {
-    return (
-      <div style={{ maxWidth: 600, margin: "2.5rem auto" }}>
-        <Alert
-          message="Account Blocked"
-          description="Your account has been blocked. Please request to unblock from settings."
-          type="error"
-          showIcon
-        />
-      </div>
-    );
-  }
-  useEffect(() => {
+  const dataSource = useMemo(() => {
     const pickup = searchParams?.get("pickup_location") ?? null;
     const drop = searchParams?.get("drop_location") ?? null;
     const departure = searchParams?.get("departure_time") ?? null;
-    let filtered = data.filter((ride) => ride.avaialble_seats > 0);
+
+    let filtered = data.filter((ride) => getSeats(ride) > 0);
+
     if (pickup && drop && departure) {
       filtered = filtered
         .filter(
@@ -103,29 +85,64 @@ function Rides() {
             ride.departure_time.toLowerCase() === departure.toLowerCase(),
         );
     }
-    setDataSource(filtered);
-  }, [searchParams, data]);
+
+    return filtered;
+  }, [data, searchParams]);
 
   useEffect(() => {
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       setLoading(false);
     }, 1000);
+
+    return () => clearTimeout(timerId);
   }, []);
+
+  if (isBlocked) {
+    return (
+      <div style={{ maxWidth: 600, margin: "2.5rem auto" }}>
+        <Alert
+          message="Account Blocked"
+          description="Your account has been blocked. Please request to unblock from settings."
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
 
   function viewRideDetail(record) {
     setSelectedRide(record);
     setModalOpen(true);
-    setSearchParams({ rideId: record.rideId });
   }
 
   function handleClose() {
     setModalOpen(false);
     setSelectedRide(null);
-    setSearchParams({});
   }
 
-  function handleDelete(rideId) {
-    dispatch(deleteRide(rideId));
+  async function handleDelete(rideId) {
+    try {
+      await dispatch(deleteRequestsByRideId(rideId));
+    } catch {
+      // Continue even when no related requests exist.
+    }
+
+    try {
+      await dispatch(deleteRide(rideId));
+      api.success({
+        message: "Ride Deleted",
+        description: "Ride and related requests deleted successfully.",
+        duration: 1.5,
+        placement: "topRight",
+      });
+    } catch (error) {
+      api.error({
+        message: "Delete Failed",
+        description: error.message || "Unable to delete ride.",
+        duration: 2,
+        placement: "topRight",
+      });
+    }
   }
 
   function handleSearch() {
@@ -141,6 +158,17 @@ function Rides() {
   }
 
   function handleAddBooking(record) {
+    if (!token) {
+      api.info({
+        message: "Login required",
+        description: "Please log in before booking a ride.",
+        duration: 1.5,
+        placement: "topRight",
+      });
+      navigate("/login");
+      return;
+    }
+
     const requestPayload = {
       ride_detail: record._id || record.rideId,
       status: "pending",
@@ -192,12 +220,14 @@ function Rides() {
             icon={<EyeOutlined />}
             onClick={() => viewRideDetail(record)}
           />
-          <Button
-            type="default"
-            icon={<DeleteOutlined />}
-            style={{ color: "red", borderColor: "red" }}
-            onClick={() => handleDelete(record.rideId)}
-          />
+          {user?.role === "organizer" && (
+            <Button
+              type="default"
+              icon={<DeleteOutlined />}
+              style={{ color: "red", borderColor: "red" }}
+              onClick={() => handleDelete(record._id || record.rideId)}
+            />
+          )}
         </Space>
       ),
     },
@@ -206,17 +236,17 @@ function Rides() {
   return (
     <>
       {contextHolder}
-      <Select
+      <AutoComplete
         onChange={(value) => setPickup_loc(value)}
         allowClear
-        placeholder="Pickup Location"
+        placeholder="Type or select pickup city"
         style={{ width: 200, marginRight: 16, marginBottom: 20 }}
         options={cities}
       />
-      <Select
+      <AutoComplete
         onChange={(value) => setDrop_loc(value)}
         allowClear
-        placeholder="Drop Location"
+        placeholder="Type or select drop city"
         style={{ width: 200, marginBottom: 20, marginRight: 16 }}
         options={cities}
       />
@@ -263,6 +293,7 @@ function Rides() {
           record={selectedRide}
           open={modalOpen}
           handleAddBooking={handleAddBooking}
+          canBook={Boolean(token)}
           onClose={handleClose}
         />
       </Skeleton>

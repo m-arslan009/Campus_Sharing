@@ -9,13 +9,7 @@ const rideReducer = createSlice({
   },
   reducers: {
     setRides: (state, action) => {
-      state.data = (action.payload || []).map((ride) => ({
-        ...ride,
-        driver_Name: ride.driver_Name || ride.driver_name,
-        avaialble_seats: ride.avaialble_seats ?? ride.available_seats,
-        vehical_type: ride.vehical_type || ride.vehicle_type,
-        Notes: ride.Notes ?? ride.notes,
-      }));
+      state.data = (action.payload || []);
     },
 
     delRide: (state, action) => {
@@ -65,12 +59,14 @@ const rideReducer = createSlice({
   },
 });
 
-export const createNewRide = (rideData) => async (dispatch) => {
+export const createNewRide = (rideData) => async (dispatch, getState) => {
   try {
+    const token = getState().user.token;
     const response = await fetch(RIDE_URI, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify(rideData),
     });
@@ -79,7 +75,7 @@ export const createNewRide = (rideData) => async (dispatch) => {
     if (!response.ok) {
       throw new Error(data.message);
     }
-
+    console.log("Ride created successfully:", data.ride);
     dispatch(addRide(data.ride));
     return data.message;
   } catch (error) {
@@ -87,7 +83,7 @@ export const createNewRide = (rideData) => async (dispatch) => {
   }
 };
 
-export const getAllRides = () => async (dispatch) => {
+export const getAllRides = () => async (dispatch, getState) => {
   try {
     const response = await fetch(RIDE_URI, {
       method: "GET",
@@ -108,13 +104,15 @@ export const getAllRides = () => async (dispatch) => {
   }
 };
 
-export const updateRide = (rideData) => async (dispatch) => {
+export const updateRide = (rideData) => async (dispatch, getState) => {
   try {
     const { _id, ...rest } = rideData;
+    const token = getState().user.token;
     const response = await fetch(`${RIDE_URI}/${_id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify(rest),
     });
@@ -130,12 +128,14 @@ export const updateRide = (rideData) => async (dispatch) => {
   }
 };
 
-export const deleteRide = (rideId) => async (dispatch) => {
+export const deleteRide = (rideId) => async (dispatch, getState) => {
   try {
+    const token = getState().user.token;
     const response = await fetch(`${RIDE_URI}/${rideId}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
     });
     const data = await response.json();

@@ -1,5 +1,7 @@
 const express = require("express");
 const userRouter = express.Router();
+const { jwtAuth } = require("../Middleware/sessionAuthentication");
+
 const {
   RegisterUser,
   getUsers,
@@ -8,17 +10,19 @@ const {
   login,
   deleteUser,
   updateUserStatus,
+  logout
 } = require("../Controllers/userController");
 
 userRouter.post("/register", RegisterUser);
 userRouter.post("/login", login);
 
-userRouter.get("/", getUsers);
-userRouter.get("/:email", getUser);
+userRouter.get("/", jwtAuth, getUsers);
+userRouter.get("/:email", jwtAuth, getUser);
 
-userRouter.put("/status/:email", updateUserStatus);
-userRouter.put("/:id", updateUserProfile);
+userRouter.put("/status/:email", jwtAuth, updateUserStatus);
+userRouter.put("/:id", jwtAuth, updateUserProfile);
 
-userRouter.delete("/:id", deleteUser);
+userRouter.delete("/:id", jwtAuth, deleteUser);
+userRouter.post("/logout", logout);
 
 module.exports = userRouter;

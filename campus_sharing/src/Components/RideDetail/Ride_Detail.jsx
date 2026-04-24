@@ -9,18 +9,19 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 const { Title, Text } = Typography;
-import { useSelector } from "react-redux";
 import User_Detail from "../UserDetail/User_Detail";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 export default function Ride_Detail({
-  record, // record contains posted_person_email
+  record, 
   open,
   onClose,
   handleAddBooking,
+  canBook = true,
 }) {
-  const users = useSelector((state) => state.user);
+  console.log("Ride Detail Record:", record);
+
   function handleOnOk() {
     handleAddBooking(record);
   }
@@ -36,11 +37,9 @@ export default function Ride_Detail({
   const status = searchParam.get("status");
 
   function handleProfileView(email) {
-    const user = users.find((u) => u.email === email);
-    if (user) {
-      setUserDetailRecord(user);
-      setUserDetailOpen(true);
-    }
+    if (!record?.posted_person_email) return;
+    setUserDetailRecord(record.posted_person_email);
+    setUserDetailOpen(true);
   }
 
   return (
@@ -61,8 +60,7 @@ export default function Ride_Detail({
               type="secondary"
               style={{ fontSize: 15, marginBottom: 16, display: "block" }}
             >
-              <CarOutlined /> {record.vehical_type} &nbsp; <UserOutlined />{" "}
-              {record.driver_Name}
+              <CarOutlined /> {record.vehicle_type} &nbsp; {" "}
             </Text>
             <Divider style={{ margin: "12px 0" }} />
             <div style={{ marginBottom: 12 }}>
@@ -82,8 +80,8 @@ export default function Ride_Detail({
               <br />
               <Text>
                 <TeamOutlined /> <b>Seats:</b>{" "}
-                {record.avaialble_seats ? (
-                  record.avaialble_seats
+                {record.available_seats > 0 ? (
+                  record.available_seats
                 ) : (
                   <p style={{ color: "red" }}>No Seat Available</p>
                 )}
@@ -95,13 +93,13 @@ export default function Ride_Detail({
               </Text>
               <br />
               <Text>
-                <InfoCircleOutlined /> <b>Posted By:</b> {record.posted_by}{" "}
+                <InfoCircleOutlined /> <b>Posted By:</b> {record.posted_person_email?.email || "Unknown"}
                 {record.posted_person_email && (
                   <Button
                     size="small"
                     style={{ marginLeft: 8 }}
                     onClick={() =>
-                      handleProfileView(record.posted_person_email)
+                      handleProfileView(record.posted_person_email.email)
                     }
                   >
                     View Profile
@@ -110,12 +108,14 @@ export default function Ride_Detail({
               </Text>
             </div>
             <Divider style={{ margin: "12px 0" }} />
-            <Text
-              type="secondary"
-              style={{ fontSize: 14, marginBottom: 16, display: "block" }}
-            >
-              <InfoCircleOutlined /> {record.Notes}
-            </Text>
+            {record.notes && (
+              <div style={{ marginBottom: 12 }}>
+                <Text>
+                  <InfoCircleOutlined /> <b>Additional Details:</b>{" "}
+                  {record.notes}
+                </Text>
+              </div>
+            )}
             <Button
               type="primary"
               block
@@ -127,9 +127,11 @@ export default function Ride_Detail({
                 fontSize: 16,
               }}
               onClick={handleOnOk}
-              disabled={record.avaialble_seats <= 0 ? true : false}
+              disabled={record.available_seats <= 0 ? true : false}
             >
-              {status && status == "Pending"
+              {!canBook
+                ? "Login to Book"
+                : status && status == "Pending"
                 ? "Accept Ride Request"
                 : "Book this ride"}
             </Button>

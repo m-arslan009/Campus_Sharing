@@ -4,32 +4,42 @@ const USER_URI = "http://localhost:5000/users";
 const REGISTER_URI = `${USER_URI}/register`;
 const LOGIN_URI = `${USER_URI}/login`;
 
+const decodeJwtPayload = (token) => {
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split(".")[1]));
+  } catch {
+    return null;
+  }
+};
+
+
 const userSLice = createSlice({
   name: "User",
-  initialState: [],
+  initialState: { users: [], token: null },
   reducers: {
     allUsers: (state, action) => {
-      return action.payload;
+      state.users = action.payload;
     },
     addUser: (state, action) => {
-      state.push(action.payload);
+      state.users.push(action.payload);
     },
 
     userDeleted: (state, action) => {
-      return state.filter((user) => user._id !== action.payload);
+      state.users = state.users.filter((user) => user._id !== action.payload);
     },
 
     userUpdated: (state, action) => {
-      const userIndex = state.findIndex(
+      const userIndex = state.users.findIndex(
         (user) => user.id === action.payload?.id,
       );
       if (userIndex !== -1) {
-        state[userIndex] = { ...state[userIndex], ...action.payload };
+        state.users[userIndex] = { ...state.users[userIndex], ...action.payload };
       }
     },
 
     updateStatus: (state, action) => {
-      return state.map((item) =>
+      state.users = state.users.map((item) =>
         item.email === action.payload.email
           ? { ...item, status: action.payload.status }
           : item,
@@ -37,24 +47,15 @@ const userSLice = createSlice({
     },
 
     getUser: (state, action) => {
-      return state.filter((user) => user.id === action.payload.id);
+      state.users.find((user) => user.id === action.payload.id);
     },
 
     setLoggedInUser: (state, action) => {
-      const user = action.payload;
-      const existingUserIndex = state.findIndex(
-        (item) => item._id === user._id,
-      );
+      state.token = action.payload;
+    },
 
-      if (existingUserIndex !== -1) {
-        state[existingUserIndex] = {
-          ...state[existingUserIndex],
-          ...user,
-        };
-        return;
-      }
-
-      state.push(user);
+    clearLoggedInUser: (state) => {
+      state.token = null;
     },
   },
 });
@@ -92,23 +93,31 @@ export const loginUser = (credentials) => async (dispatch) => {
     throw new Error(data.message || "Login failed");
   }
 
-  const authenticatedUser = data?.user || data;
-  sessionStorage.setItem("user", JSON.stringify(authenticatedUser));
-  dispatch(setLoggedInUser(authenticatedUser));
+  const token =
+    data?.accessToken ;
 
-  return authenticatedUser;
+  if (!token) {
+    throw new Error("Login failed");
+  }
+
+  
+  dispatch(setLoggedInUser(token));
+  return token;
 };
 
-export const deleteUser = (userId) => async (dispatch) => {
+
+export const deleteUser = (userId) => async (dispatch, getState) => {
   try {
+    const token = getState().user.token;
     const response = await fetch(`${USER_URI}/${userId}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
     });
 
-    const data = response.json();
+    const data = await response.json();
     if (!response.ok) {
       throw new Error(data?.message ?? "Unable to delete User");
     }
@@ -117,15 +126,18 @@ export const deleteUser = (userId) => async (dispatch) => {
     return "User Deleted Successfully";
   } catch (error) {
     console.error(error);
+    throw error;
   }
 };
 
-export const updateUser = (updatedInfo, userId) => async () => {
+export const updateUser = (updatedInfo, userId) => async (dispatch, getState) => {
   try {
+    const token = getState().user.token;
     const response = await fetch(`${USER_URI}/${userId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify(updatedInfo),
     });
@@ -134,19 +146,24 @@ export const updateUser = (updatedInfo, userId) => async () => {
     if (!response.ok) {
       throw new Error(data?.message ?? "Unable to update User");
     }
-    return data?.user || updatedInfo;
+    
+    const updatedUser = data?.user || updatedInfo;
+    dispatch(userUpdated(updatedUser));
+    return updatedUser;
   } catch (error) {
     console.error(error);
     throw error;
   }
 };
 
-export const getAllUsers = () => async (dispatch) => {
+export const getAllUsers = () => async (dispatch, getState) => {
   try {
+    const token = getState().user.token;
     const response = await fetch(USER_URI, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
     });
 
@@ -158,15 +175,18 @@ export const getAllUsers = () => async (dispatch) => {
     dispatch(allUsers(data));
   } catch (error) {
     console.error(error);
+    throw error;
   }
 };
 
-export const updateUserStatus = (userEmail, newStatus) => async (dispatch) => {
+export const updateUserStatus = (userEmail, newStatus) => async (dispatch, getState) => {
   try {
+    const token = getState().user.token;
     const response = await fetch(`${USER_URI}/status/${userEmail}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify({ status: newStatus }),
     });
@@ -184,6 +204,29 @@ export const updateUserStatus = (userEmail, newStatus) => async (dispatch) => {
     return data;
   } catch (error) {
     console.error(error.message);
+    throw error;
+  }
+};
+
+export const logoutUser = () => async (dispatch, getState) => {
+  try {
+    const token = getState().user.token;
+    const response = await fetch(`${USER_URI}/logout`, {
+      method:"POST", 
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.message || "Logout failed");
+    }
+    dispatch(clearLoggedInUser());
+    return data;
+  } catch (error) {
+    console.error(error.message);
+    throw error;
   }
 };
 
@@ -194,6 +237,10 @@ export const {
   updateStatus,
   setLoggedInUser,
   allUsers,
+  clearLoggedInUser,
 } = userSLice.actions;
+
+export const selectAuthToken = (state) => state.user.token;
+export const selectCurrentUser = (state) => decodeJwtPayload(state.user.token);
 
 export default userSLice.reducer;

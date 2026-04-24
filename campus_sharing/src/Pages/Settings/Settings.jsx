@@ -2,22 +2,30 @@ import { Button, Card, Form, Input, notification } from "antd";
 import style from "./settings.module.css";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { updateUser, updateUserStatus } from "../../userSlice";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  selectCurrentUser,
+  updateUser,
+  updateUserStatus,
+} from "../../userSlice";
 
 function Settings() {
   const [api, contextHolder] = notification.useNotification();
   const navigate = useNavigate();
-  const [userInfo, setUserInfo] = useState(
-    JSON.parse(sessionStorage.getItem("user")),
-  );
+  const currentUser = useSelector(selectCurrentUser);
+  const token = useSelector((state) => state.user.token);
+  const [userInfo, setUserInfo] = useState(currentUser);
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (!userInfo) {
+    setUserInfo(currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!token) {
       navigate("/login");
     }
-  }, [navigate, userInfo]);
+  }, [navigate, token]);
 
   function onFinish(values) {
     const { confirmPassword: _confirmPassword, ...rest } = values;
@@ -29,7 +37,6 @@ function Settings() {
     dispatch(updateUser(updatedUser, userInfo._id))
       .then((savedUser) => {
         const { password: _password, ...userToStore } = savedUser;
-        sessionStorage.setItem("user", JSON.stringify(userToStore));
         setUserInfo(userToStore);
         api.success({
           message: "Profile Updated",
@@ -66,7 +73,6 @@ function Settings() {
           ...userInfo,
           status: savedStatus?.user?.status || "active",
         };
-        sessionStorage.setItem("user", JSON.stringify(nextUser));
         setUserInfo(nextUser);
         api.success({
           message: "Request Sent",

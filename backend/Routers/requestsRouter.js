@@ -1,4 +1,5 @@
 const express = require("express");
+const { jwtAuth } = require("../Middleware/sessionAuthentication");
 const {
   createNewRequests,
   updateRequest,
@@ -6,14 +7,17 @@ const {
   getRequestQueueByUser,
   getRequest,
   deleteRequest,
+  deleteRequestsByRideId,
 } = require("../Controllers/requestController");
 const router = express.Router();
 
-router.post("/", createNewRequests);
-router.put("/:id", updateRequest);
-router.get("/", getAllRequests);
-router.get("/users/:userId/queue", getRequestQueueByUser);
-router.get("/:id", getRequest);
-router.delete("/:id", deleteRequest);
+router.post("/", jwtAuth, createNewRequests);
+router.put("/:id", jwtAuth, updateRequest);
+router.get("/", jwtAuth, getAllRequests);
+router.get("/users/:userId/queue", jwtAuth, getRequestQueueByUser);
+router.delete("/ride/:rideId", jwtAuth, deleteRequestsByRideId);
+router.get("/:id", jwtAuth, getRequest);
+router.delete("/:id", jwtAuth, deleteRequest);
+
 
 module.exports = router;

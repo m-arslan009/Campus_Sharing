@@ -13,7 +13,7 @@ import User_Detail from "../../Components/UserDetail/User_Detail";
 
 function Users() {
   const dispatch = useDispatch();
-  const users = useSelector((state) => state.user);
+  const users = useSelector((state) => state.user.users);
 
   const [displayData, setDisplayData] = useState(users);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -96,17 +96,6 @@ function Users() {
   }
 
   function handleStatusChange(email, newStatus) {
-    const storedUserStr = sessionStorage.getItem("user");
-    if (storedUserStr) {
-      const storedUser = JSON.parse(storedUserStr);
-      if (storedUser.email === email) {
-        const oldUser = users.find((user) => user.email === email);
-        if (oldUser) {
-          const updated_user = { ...oldUser, status: newStatus };
-          sessionStorage.setItem("user", JSON.stringify(updated_user));
-        }
-      }
-    }
     dispatch(updateUserStatus(email, newStatus));
   }
 

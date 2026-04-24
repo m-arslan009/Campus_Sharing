@@ -9,7 +9,21 @@ const bookingsRouter = require("./Routers/bookingsRouter");
 
 const app = express();
 
-app.use(cors());
+const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:5173";
+const ALLOWED_ORIGINS = [FRONTEND_ORIGIN, "http://localhost:5174"];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
